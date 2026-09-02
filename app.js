@@ -35,8 +35,6 @@ const elements = {
   },
   partyName: document.querySelector("#party-name"),
   productGrid: document.querySelector("#product-grid"),
-  cartList: document.querySelector("#cart-list"),
-  emptyState: document.querySelector("#empty-state"),
   resetButton: document.querySelector("#reset-button"),
   itemCount: document.querySelector("#item-count"),
   drinkTotal: document.querySelector("#drink-total"),
@@ -51,6 +49,7 @@ const elements = {
   receiptTime: document.querySelector("#receipt-time"),
   receiptItems: document.querySelector("#receipt-items"),
   receiptTotal: document.querySelector("#receipt-total"),
+  receiptTitle: document.querySelector("#receipt-title"),
   grandTotal: document.querySelector("#grand-total"),
   editButton: document.querySelector("#edit-button"),
   finishButton: document.querySelector("#finish-button"),
@@ -68,7 +67,7 @@ initialize();
 function initialize() {
   document.title = `${party.name} · Kasse`;
   elements.partyName.textContent = party.name;
-  elements.depositRate.textContent = `${formatMoney(party.deposit)} pro Stück`;
+  elements.depositRate.textContent = `${formatMoney(party.deposit)} Pfand pro Stück`;
 
   renderProductTiles();
   renderOrder();
@@ -125,7 +124,12 @@ function renderProductTiles() {
     removeButton.type = "button";
     removeButton.dataset.removeFor = drink.id;
     removeButton.setAttribute("aria-label", `Einmal ${drink.name} entfernen`);
-    removeButton.textContent = "−";
+    const removeIcon = document.createElement("img");
+    removeIcon.className = "button-icon";
+    removeIcon.src = "assets/icons/remove.svg";
+    removeIcon.alt = "";
+    removeIcon.setAttribute("aria-hidden", "true");
+    removeButton.append(removeIcon);
     removeButton.hidden = true;
     removeButton.addEventListener("click", () => changeDrinkQuantity(drink.id, -1));
 
@@ -164,17 +168,6 @@ function renderOrder() {
     removeButton.hidden = quantity === 0;
   });
 
-  elements.cartList.replaceChildren();
-  getSelectedDrinks().forEach(({ drink, quantity }) => {
-    const row = document.createElement("li");
-    row.innerHTML = `
-      <span><strong>${quantity}×</strong> ${escapeHtml(drink.name)}</span>
-      <span>${formatMoney(drink.price * quantity)}</span>
-    `;
-    elements.cartList.append(row);
-  });
-
-  elements.emptyState.hidden = totalCount > 0;
   elements.itemCount.textContent = `${totalCount} ${totalCount === 1 ? "Getränk" : "Getränke"}`;
   elements.drinkTotal.textContent = formatMoney(totalPrice);
   elements.resetButton.disabled = totalCount === 0;
@@ -186,7 +179,7 @@ function resetOrderWithFeedback() {
   state.depositCount = 0;
   renderOrder();
   renderDeposit();
-  showToast("Bestellung geleert");
+  showToast("Bestellung zurückgesetzt");
 }
 
 // ------------------------------
@@ -201,7 +194,7 @@ function changeDeposit(difference) {
 function renderDeposit() {
   elements.depositCount.value = state.depositCount;
   elements.depositCount.textContent = state.depositCount;
-  elements.depositTotal.textContent = formatMoney(state.depositCount * party.deposit);
+  elements.depositTotal.textContent = `− ${formatMoney(state.depositCount * party.deposit)}`;
   elements.depositMinus.disabled = state.depositCount === 0;
   elements.calculateButton.textContent = state.depositCount === 0
     ? "Berechnen ohne Pfand"
@@ -240,6 +233,8 @@ function showReceipt() {
 
   const formattedTotal = formatMoney(finalTotal);
   elements.receiptTotal.textContent = formattedTotal;
+  elements.receiptTitle.textContent = finalTotal < 0 ? "Rückgeld" : "Zu zahlen";
+  elements.receiptTitle.classList.toggle("receipt-title--refund", finalTotal < 0);
   elements.grandTotal.textContent = formattedTotal;
   elements.grandTotal.classList.toggle("grand-total--negative", finalTotal < 0);
 

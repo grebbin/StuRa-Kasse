@@ -15,9 +15,9 @@ const PARTIES = {
     drinks: [
       { id: "bier", abbreviation: "BI", name: "Bier", price: 2.5 },
       { id: "radler", abbreviation: "RA", name: "Radler", price: 2.5 },
-      { id: "cola", abbreviation: "CO", name: "Cola", price: 2.0 },
+      { id: "cock", abbreviation: "CO", name: "Cocktail", price: 6.0 },
       { id: "wasser", abbreviation: "WA", name: "Wasser", price: 1.5 },
-      { id: "mate", abbreviation: "MA", name: "Mate", price: 2.5 },
+      { id: "soft", abbreviation: "SO", name: "Mate, Cola, Eistee, Sprite, Limo", price: 2.5 },
       { id: "shot", abbreviation: "SH", name: "Shot", price: 1.5 },
     ],
   },

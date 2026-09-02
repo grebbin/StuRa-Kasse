@@ -8,10 +8,11 @@
   --surface-selected: #f0f5ff;
   --text: #14171f;
   --muted: #6b7280;
-  --line: #e5e7eb;
+  --line: #d5d7db;
   --accent: #195ee6;
   --accent-dark: #1048b7;
   --danger: #c92a2a;
+  --accent-danger: #fdc1c1;
   --success: #19723b;
   --radius: 18px;
   --shadow: 0 10px 30px rgb(20 23 31 / 7%);
@@ -95,6 +96,10 @@ button:disabled {
   margin-bottom: 14px;
 }
 
+#products-screen .screen__header {
+  margin-bottom: 28px;
+}
+
 .header-copy {
   flex: 1;
 }
@@ -108,7 +113,7 @@ h1 {
   margin-bottom: 0;
   font-size: clamp(1.85rem, 7vw, 2.5rem);
   line-height: 1.05;
-  letter-spacing: -0.04em;
+  letter-spacing: 0;
 }
 
 .eyebrow {
@@ -143,9 +148,17 @@ h1 {
 }
 
 .back-button {
+  display: grid;
   flex: 0 0 var(--tap-size);
   margin-left: -10px;
-  font-size: 1.65rem;
+  padding: 0;
+  place-items: center;
+}
+
+.button-icon {
+  display: block;
+  width: 24px;
+  height: 24px;
 }
 
 /*
@@ -196,19 +209,24 @@ h1 {
 
 .product-tile__abbreviation {
   font-size: clamp(2.1rem, 10vw, 3.15rem);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-weight: 850;
   line-height: 1;
-  letter-spacing: -0.06em;
+  letter-spacing: 0;
 }
 
 .product-tile__name {
+  display: -webkit-box;
   max-width: calc(100% - 38px);
   margin-top: auto;
   overflow: hidden;
   font-size: 0.82rem;
   font-weight: 650;
+  line-height: 1.2;
   text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .product-tile__price {
@@ -220,16 +238,16 @@ h1 {
 .product-tile__count {
   position: absolute;
   top: 12px;
-  right: 12px;
+  right: 9px;
   display: grid;
-  min-width: 31px;
-  height: 31px;
+  min-width: 45px;
+  height: 45px;
   padding: 0 8px;
   border-radius: 999px;
   color: white;
   background: var(--accent);
   place-items: center;
-  font-size: 0.88rem;
+  font-size: 1rem;
   font-weight: 800;
 }
 
@@ -239,12 +257,12 @@ h1 {
   bottom: 9px;
   z-index: 1;
   display: grid;
-  width: 42px;
-  height: 42px;
+  width: 45px;
+  height: 45px;
   padding: 0;
-  border: 1px solid rgb(25 94 230 / 20%);
+  border: 1px solid rgb(250 105 105 / 20%);
   border-radius: 13px;
-  color: var(--accent);
+  color: var(--danger);
   background: white;
   box-shadow: 0 2px 8px rgb(20 23 31 / 8%);
   cursor: pointer;
@@ -254,40 +272,7 @@ h1 {
 }
 
 .product-tile__remove:active {
-  background: #e6efff;
-}
-
-.empty-state {
-  display: flex;
-  margin-top: 28px;
-  padding: 22px;
-  border: 1px dashed var(--line);
-  border-radius: var(--radius);
-  color: var(--muted);
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-}
-
-.empty-state small {
-  margin-top: 4px;
-}
-
-.cart-list {
-  display: grid;
-  margin: 24px 0 0;
-  padding: 0;
-  gap: 0;
-  list-style: none;
-}
-
-.cart-list li {
-  display: flex;
-  padding: 10px 2px;
-  border-bottom: 1px solid var(--line);
-  justify-content: space-between;
-  gap: 16px;
-  font-size: 0.9rem;
+  background: var(--accent-danger);
 }
 
 .action-bar {
@@ -326,6 +311,7 @@ h1 {
 
 .running-total strong {
   font-size: 1.28rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
 .primary-button,
@@ -378,22 +364,28 @@ h1 {
 
 .counter {
   display: grid;
-  width: min(100%, 400px);
+  width: min(100%, 300px);
   margin: 0 auto;
   grid-template-columns: 84px 1fr 84px;
   align-items: center;
-  gap: 14px;
+  gap: 8px;
 }
 
 .counter__button {
+  display: grid;
   aspect-ratio: 1;
+  padding: 0;
   border: 1px solid var(--line);
   border-radius: 24px;
   background: var(--surface);
   box-shadow: var(--shadow);
   cursor: pointer;
-  font-size: 2.2rem;
-  line-height: 1;
+  place-items: center;
+}
+
+.counter__button .button-icon {
+  width: 32px;
+  height: 32px;
 }
 
 .counter__button:not(:disabled):active {
@@ -403,20 +395,11 @@ h1 {
 
 .counter__value {
   font-size: clamp(4rem, 22vw, 7rem);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-weight: 850;
   line-height: 1;
-  letter-spacing: -0.08em;
+  letter-spacing: 0;
   text-align: center;
-}
-
-.deposit-sum {
-  margin-top: 30px;
-  color: var(--muted);
-  text-align: center;
-}
-
-.deposit-sum strong {
-  color: var(--text);
 }
 
 .deposit-actions,
@@ -437,16 +420,41 @@ h1 {
   gap: 10px;
 }
 
+.deposit-actions {
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.deposit-running-total {
+  flex: 0 0 auto;
+  font-size: 1.28rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-variant-numeric: tabular-nums;
+  font-weight: 650;
+}
+
+.deposit-actions .primary-button {
+  min-width: 0;
+  padding-right: 18px;
+  padding-left: 18px;
+}
+
 /* Ergebnis und Bon */
 .receipt-header {
   margin: 25px 0 35px;
   text-align: center;
 }
 
+.receipt-title--refund {
+  color: var(--text);
+}
+
 .grand-total {
   font-size: clamp(3.4rem, 16vw, 6.6rem);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-variant-numeric: tabular-nums;
-  letter-spacing: -0.07em;
+  letter-spacing: 0;
 }
 
 .grand-total--negative {

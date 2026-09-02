@@ -20,23 +20,14 @@
         <header class="screen__header">
           <div>
             <p class="eyebrow" id="party-name">Kasse</p>
-            <h1 id="products-title">Getränke</h1>
+            <h1 id="products-title">Getränkeliste</h1>
           </div>
           <button class="text-button" id="reset-button" type="button" disabled>
-            Leeren
+            Zurücksetzen
           </button>
         </header>
 
-        <p class="hint">Antippen zum Hinzufügen. Mit <strong>−</strong> korrigieren.</p>
-
         <div class="product-grid" id="product-grid" aria-label="Getränkeauswahl"></div>
-
-        <div class="empty-state" id="empty-state">
-          <span>Noch keine Getränke</span>
-          <small>Wähle oben die Bestellung aus.</small>
-        </div>
-
-        <ul class="cart-list" id="cart-list" aria-label="Aktuelle Bestellung"></ul>
 
         <footer class="action-bar">
           <div class="running-total" aria-live="polite">
@@ -44,7 +35,7 @@
             <strong id="drink-total">0,00 €</strong>
           </div>
           <button class="primary-button" id="to-deposit-button" type="button" disabled>
-            Weiter
+            Berechnen...
           </button>
         </footer>
       </section>
@@ -53,35 +44,31 @@
       <section class="screen" id="deposit-screen" aria-labelledby="deposit-title" hidden>
         <header class="screen__header">
           <button class="back-button" data-back-to="products" type="button" aria-label="Zurück zu den Getränken">
-            ←
+            <img class="button-icon" src="assets/icons/back.svg" alt="" aria-hidden="true" />
           </button>
           <div class="header-copy">
-            <p class="eyebrow">Schritt 2 von 2</p>
-            <h1 id="deposit-title">Pfand zurück</h1>
+            <h1 id="deposit-title">Pfand zurück?</h1>
           </div>
         </header>
 
         <p class="deposit-explanation">
-          Wie viele Pfandartikel gibt der Kunde zurück?
-          <span id="deposit-rate">0,00 € pro Stück</span>
+          Wie viel Stück werden zurückgegeben?
+          <span id="deposit-rate">0,00 € Pfand pro Stück</span>
         </p>
 
         <div class="counter" aria-label="Anzahl zurückgegebener Pfandartikel">
           <button class="counter__button" id="deposit-minus" type="button" aria-label="Ein Pfand weniger" disabled>
-            −
+            <img class="button-icon" src="assets/icons/remove.svg" alt="" aria-hidden="true" />
           </button>
           <output class="counter__value" id="deposit-count" aria-live="polite">0</output>
           <button class="counter__button" id="deposit-plus" type="button" aria-label="Ein Pfand mehr">
-            +
+            <img class="button-icon" src="assets/icons/add.svg" alt="" aria-hidden="true" />
           </button>
         </div>
 
-        <p class="deposit-sum">
-          Abzug: <strong id="deposit-total">0,00 €</strong>
-        </p>
-
         <footer class="deposit-actions">
-          <button class="primary-button primary-button--wide" id="calculate-button" type="button">
+          <output class="deposit-running-total" id="deposit-total" aria-live="polite">− 0,00 €</output>
+          <button class="primary-button" id="calculate-button" type="button">
             Berechnen ohne Pfand
           </button>
         </footer>
