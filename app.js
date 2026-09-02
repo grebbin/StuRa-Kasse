@@ -233,7 +233,7 @@ function showReceipt() {
 
   const formattedTotal = formatMoney(finalTotal);
   elements.receiptTotal.textContent = formattedTotal;
-  elements.receiptTitle.textContent = finalTotal < 0 ? "Rückgeld" : "Zu zahlen";
+  elements.receiptTitle.textContent = finalTotal < 0 ? "Leider Rückgeld" : "Zu zahlen";
   elements.receiptTitle.classList.toggle("receipt-title--refund", finalTotal < 0);
   elements.grandTotal.textContent = formattedTotal;
   elements.grandTotal.classList.toggle("grand-total--negative", finalTotal < 0);
