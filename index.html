@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#ffffff" />
+    <meta
+      name="description"
+      content="Schnelle, mobile Kassenhilfe für Getränkebestellungen und Pfandrückgabe."
+    />
+    <title>StuRa Kasse</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script src="config.js" defer></script>
+    <script src="app.js" defer></script>
+  </head>
+  <body>
+    <main class="app-shell">
+      <!-- Ansicht 1: Getränke auswählen -->
+      <section class="screen screen--active" id="products-screen" aria-labelledby="products-title">
+        <header class="screen__header">
+          <div>
+            <p class="eyebrow" id="party-name">Kasse</p>
+            <h1 id="products-title">Getränke</h1>
+          </div>
+          <button class="text-button" id="reset-button" type="button" disabled>
+            Leeren
+          </button>
+        </header>
+
+        <p class="hint">Antippen zum Hinzufügen. Mit <strong>−</strong> korrigieren.</p>
+
+        <div class="product-grid" id="product-grid" aria-label="Getränkeauswahl"></div>
+
+        <div class="empty-state" id="empty-state">
+          <span>Noch keine Getränke</span>
+          <small>Wähle oben die Bestellung aus.</small>
+        </div>
+
+        <ul class="cart-list" id="cart-list" aria-label="Aktuelle Bestellung"></ul>
+
+        <footer class="action-bar">
+          <div class="running-total" aria-live="polite">
+            <span id="item-count">0 Getränke</span>
+            <strong id="drink-total">0,00 €</strong>
+          </div>
+          <button class="primary-button" id="to-deposit-button" type="button" disabled>
+            Weiter
+          </button>
+        </footer>
+      </section>
+
+      <!-- Ansicht 2: zurückgegebenes Pfand zählen -->
+      <section class="screen" id="deposit-screen" aria-labelledby="deposit-title" hidden>
+        <header class="screen__header">
+          <button class="back-button" data-back-to="products" type="button" aria-label="Zurück zu den Getränken">
+            ←
+          </button>
+          <div class="header-copy">
+            <p class="eyebrow">Schritt 2 von 2</p>
+            <h1 id="deposit-title">Pfand zurück</h1>
+          </div>
+        </header>
+
+        <p class="deposit-explanation">
+          Wie viele Pfandartikel gibt der Kunde zurück?
+          <span id="deposit-rate">0,00 € pro Stück</span>
+        </p>
+
+        <div class="counter" aria-label="Anzahl zurückgegebener Pfandartikel">
+          <button class="counter__button" id="deposit-minus" type="button" aria-label="Ein Pfand weniger" disabled>
+            −
+          </button>
+          <output class="counter__value" id="deposit-count" aria-live="polite">0</output>
+          <button class="counter__button" id="deposit-plus" type="button" aria-label="Ein Pfand mehr">
+            +
+          </button>
+        </div>
+
+        <p class="deposit-sum">
+          Abzug: <strong id="deposit-total">0,00 €</strong>
+        </p>
+
+        <footer class="deposit-actions">
+          <button class="primary-button primary-button--wide" id="calculate-button" type="button">
+            Berechnen ohne Pfand
+          </button>
+        </footer>
+      </section>
+
+      <!-- Ansicht 3: Ergebnis und nachvollziehbarer Kassenbon -->
+      <section class="screen" id="receipt-screen" aria-labelledby="receipt-title" hidden>
+        <header class="receipt-header">
+          <p class="eyebrow" id="receipt-title">Zu zahlen</p>
+          <h1 class="grand-total" id="grand-total">0,00 €</h1>
+        </header>
+
+        <div class="receipt" aria-label="Zusammenfassung der Bestellung">
+          <div class="receipt__heading">
+            <strong id="receipt-party-name">Kassenbon</strong>
+            <span id="receipt-time"></span>
+          </div>
+          <div class="receipt__rule"></div>
+          <ul class="receipt__items" id="receipt-items"></ul>
+          <div class="receipt__rule"></div>
+          <div class="receipt__total-row">
+            <strong>Gesamt</strong>
+            <strong id="receipt-total">0,00 €</strong>
+          </div>
+        </div>
+
+        <footer class="result-actions">
+          <button class="secondary-button" id="edit-button" type="button">Korrigieren</button>
+          <button class="primary-button primary-button--wide" id="finish-button" type="button">
+            Fertig
+          </button>
+        </footer>
+      </section>
+    </main>
+
+    <div class="toast" id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
+
+    <noscript>Diese Kassenhilfe benötigt JavaScript.</noscript>
+  </body>
+</html>
