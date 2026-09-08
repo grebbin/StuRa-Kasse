@@ -14,6 +14,7 @@
   --accent: #195ee6;
   --accent-dark: #1048b7;
   --danger: #c92a2a;
+  --danger-dark: #991b1b;
   --accent-danger: #fdc1c1;
   --success: #19723b;
   --radius: 18px;
@@ -244,6 +245,11 @@ h1 {
   column-gap: 4px;
 }
 
+.product-tile__price--overridden {
+  color: var(--accent);
+  font-style: italic;
+}
+
 .product-tile__count {
   position: absolute;
   top: 12px;
@@ -269,10 +275,10 @@ h1 {
   width: 45px;
   height: 45px;
   padding: 0;
-  border: 1px solid rgb(250 105 105 / 20%);
+  border: 1px solid var(--danger);
   border-radius: 13px;
-  color: var(--danger);
-  background: white;
+  color: white;
+  background: var(--danger);
   box-shadow: 0 2px 8px rgb(20 23 31 / 8%);
   cursor: pointer;
   place-items: center;
@@ -280,8 +286,13 @@ h1 {
   font-weight: 400;
 }
 
+.product-tile__remove .button-icon {
+  filter: brightness(0) invert(1);
+}
+
 .product-tile__remove:active {
-  background: var(--accent-danger);
+  border-color: var(--danger-dark);
+  background: var(--danger-dark);
 }
 
 .action-bar {
@@ -359,16 +370,36 @@ h1 {
 /* Pfandansicht */
 .deposit-explanation {
   max-width: 400px;
-  margin: 40px auto 38px;
+  margin: 30px auto 22px;
   color: var(--muted);
   text-align: center;
 }
 
-.deposit-explanation span {
-  display: block;
-  margin-top: 7px;
-  color: var(--text);
+.deposit-counter-list {
+  display: grid;
+  width: min(100%, 400px);
+  margin: 0 auto;
+  gap: 12px;
+}
+
+.deposit-counter-card {
+  padding: 16px 10px 20px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.deposit-counter-card__rate {
+  margin: 0 0 12px;
+  font-family: var(--font-mono);
   font-weight: 700;
+  text-align: center;
+}
+
+.deposit-counter-list__empty {
+  margin: 24px 0;
+  color: var(--muted);
+  text-align: center;
 }
 
 .counter {

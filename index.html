@@ -61,18 +61,9 @@
 
         <p class="deposit-explanation">
           Wie viel Stück werden zurückgegeben?
-          <span id="deposit-rate">0,00 € Pfand pro Stück</span>
         </p>
 
-        <div class="counter" aria-label="Anzahl zurückgegebener Pfandartikel">
-          <button class="counter__button" id="deposit-minus" type="button" aria-label="Ein Pfand weniger" disabled>
-            <img class="button-icon" src="assets/icons/remove.svg" alt="" aria-hidden="true" />
-          </button>
-          <output class="counter__value" id="deposit-count" aria-live="polite">0</output>
-          <button class="counter__button" id="deposit-plus" type="button" aria-label="Ein Pfand mehr">
-            <img class="button-icon" src="assets/icons/add.svg" alt="" aria-hidden="true" />
-          </button>
-        </div>
+        <div class="deposit-counter-list" id="deposit-counter-list"></div>
 
         <footer class="deposit-actions">
           <output class="deposit-running-total" id="deposit-total" aria-live="polite">− 0,00 €</output>

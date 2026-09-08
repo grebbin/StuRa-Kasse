@@ -11,8 +11,9 @@ const ACTIVE_PARTY_ID = "semesterparty";
 const PARTIES = {
   semesterparty: {
     name: "Semesterparty",
-    // Dieser Wert gilt für Pfand, das über den Pfand-Counter zurückgenommen wird.
-    returnDeposit: 1.0,
+    // Diese Pfandwerte erscheinen in dieser Reihenfolge im Rückgabe-Screen,
+    // zum Beispiel: returnDeposits: [0.5, 1.0, 2.0]
+    returnDeposits: [1.0],
     drinks: [
       // price ist der Getränkepreis, deposit das beim Verkauf berechnete Pfand.
       { id: "bier", abbreviation: "BIER", name: "Bier", price: 2.5, deposit: 1.0 },
@@ -26,7 +27,7 @@ const PARTIES = {
 
   sommerfest: {
     name: "Sommerfest",
-    returnDeposit: 0.5,
+    returnDeposits: [0.5],
     drinks: [
       { id: "limo", abbreviation: "LIMO", name: "Limonade", price: 2.0, deposit: 0.5 },
       { id: "wasser", abbreviation: "WASS", name: "Wasser", price: 1.0, deposit: 0.5 },

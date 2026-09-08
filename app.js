@@ -27,7 +27,8 @@ applyStoredPriceOverrides();
 const state = {
   // Map speichert: Getränke-ID -> ausgewählte Anzahl
   quantities: new Map(),
-  depositCount: 0,
+  // Map speichert: Pfandwert in Cent -> zurückgegebene Anzahl
+  depositCounts: new Map(),
   editingDrinkId: null,
 };
 
@@ -48,10 +49,7 @@ const elements = {
   itemCount: document.querySelector("#item-count"),
   drinkTotal: document.querySelector("#drink-total"),
   toDepositButton: document.querySelector("#to-deposit-button"),
-  depositRate: document.querySelector("#deposit-rate"),
-  depositMinus: document.querySelector("#deposit-minus"),
-  depositPlus: document.querySelector("#deposit-plus"),
-  depositCount: document.querySelector("#deposit-count"),
+  depositCounterList: document.querySelector("#deposit-counter-list"),
   depositTotal: document.querySelector("#deposit-total"),
   calculateButton: document.querySelector("#calculate-button"),
   receiptPartyName: document.querySelector("#receipt-party-name"),
@@ -87,7 +85,6 @@ initialize();
 function initialize() {
   document.title = `${party.name} · Kasse`;
   elements.partyName.textContent = party.name;
-  elements.depositRate.textContent = `${formatMoney(party.returnDeposit)} Pfand pro Stück`;
 
   renderProductTiles();
   renderOrder();
@@ -102,9 +99,6 @@ function bindEvents() {
   document.querySelectorAll("[data-back-to]").forEach((button) => {
     button.addEventListener("click", () => showScreen(button.dataset.backTo));
   });
-
-  elements.depositMinus.addEventListener("click", () => changeDeposit(-1));
-  elements.depositPlus.addEventListener("click", () => changeDeposit(1));
 
   elements.calculateButton.addEventListener("click", showReceipt);
   elements.editButton.addEventListener("click", () => showScreen("products"));
@@ -157,6 +151,7 @@ function renderProductTiles() {
   elements.productGrid.replaceChildren();
 
   party.drinks.forEach((drink) => {
+    const usesDefaultValues = drinkUsesDefaultValues(drink);
     const tile = document.createElement("article");
     tile.className = "product-tile";
     tile.dataset.drinkId = drink.id;
@@ -175,7 +170,7 @@ function renderProductTiles() {
     addButton.innerHTML = `
       <span class="product-tile__abbreviation${drink.abbreviation.length > 2 ? " product-tile__abbreviation--long" : ""}">${escapeHtml(drink.abbreviation)}</span>
       <span class="product-tile__name">${escapeHtml(drink.name)}</span>
-      <span class="product-tile__price">
+      <span class="product-tile__price${usesDefaultValues ? "" : " product-tile__price--overridden"}">
         <span>${formatMoney(drink.price)}</span>${drink.deposit > 0 ? `<span>+ ${formatMoney(drink.deposit)}</span>` : ""}
       </span>
     `;
@@ -367,6 +362,7 @@ function saveEditedDrinkPrices(event) {
 
   renderProductTiles();
   renderOrder();
+  renderDeposit();
   closePriceDialog();
   showToast(
     wasStored
@@ -389,6 +385,7 @@ function resetEditedDrinkPrices() {
 
   renderProductTiles();
   renderOrder();
+  renderDeposit();
   closePriceDialog();
   showToast(
     wasStored
@@ -408,6 +405,7 @@ function resetAllDrinkPrices() {
 
   renderProductTiles();
   renderOrder();
+  renderDeposit();
   closePriceDialog();
   showToast(
     wasStored
@@ -468,7 +466,7 @@ function renderOrder() {
 
 function resetOrderWithFeedback() {
   state.quantities.clear();
-  state.depositCount = 0;
+  state.depositCounts.clear();
   renderOrder();
   renderDeposit();
   showToast("Bestellung geleert");
@@ -478,19 +476,94 @@ function resetOrderWithFeedback() {
 // Pfand
 // ------------------------------
 
-function changeDeposit(difference) {
-  state.depositCount = Math.max(0, state.depositCount + difference);
+function changeDeposit(depositCents, difference) {
+  const currentCount = state.depositCounts.get(depositCents) ?? 0;
+  const nextCount = Math.max(0, currentCount + difference);
+
+  if (nextCount === 0) {
+    state.depositCounts.delete(depositCents);
+  } else {
+    state.depositCounts.set(depositCents, nextCount);
+  }
+
   renderDeposit();
 }
 
 function renderDeposit() {
-  elements.depositCount.value = state.depositCount;
-  elements.depositCount.textContent = state.depositCount;
-  elements.depositTotal.textContent = `− ${formatMoney(state.depositCount * party.returnDeposit)}`;
-  elements.depositMinus.disabled = state.depositCount === 0;
-  elements.calculateButton.textContent = state.depositCount === 0
+  const depositValues = getReturnDepositValues();
+  const totalCount = getReturnedDepositCount();
+
+  elements.depositCounterList.replaceChildren();
+
+  depositValues.forEach((depositCents) => {
+    elements.depositCounterList.append(createDepositCounter(depositCents));
+  });
+
+  if (depositValues.length === 0) {
+    const emptyMessage = document.createElement("p");
+    emptyMessage.className = "deposit-counter-list__empty";
+    emptyMessage.textContent = "Keine Pfandwerte eingerichtet";
+    elements.depositCounterList.append(emptyMessage);
+  }
+
+  elements.depositTotal.textContent = `− ${formatMoney(getReturnedDepositTotal())}`;
+  elements.calculateButton.textContent = totalCount === 0
     ? "Berechnen ohne Pfand"
     : "Berechnen mit Pfand";
+}
+
+function createDepositCounter(depositCents) {
+  const depositValue = depositCents / 100;
+  const count = state.depositCounts.get(depositCents) ?? 0;
+  const card = document.createElement("section");
+  card.className = "deposit-counter-card";
+  card.setAttribute("aria-label", `Pfand zu ${formatMoney(depositValue)}`);
+
+  const rate = document.createElement("p");
+  rate.className = "deposit-counter-card__rate";
+  rate.textContent = `${formatMoney(depositValue)} Pfand`;
+
+  const counter = document.createElement("div");
+  counter.className = "counter";
+
+  const minusButton = createDepositCounterButton(
+    "remove.svg",
+    `Ein Pfand zu ${formatMoney(depositValue)} weniger`,
+  );
+  minusButton.disabled = count === 0;
+  minusButton.addEventListener("click", () => changeDeposit(depositCents, -1));
+
+  const countOutput = document.createElement("output");
+  countOutput.className = "counter__value";
+  countOutput.value = count;
+  countOutput.textContent = count;
+  countOutput.setAttribute("aria-live", "polite");
+
+  const plusButton = createDepositCounterButton(
+    "add.svg",
+    `Ein Pfand zu ${formatMoney(depositValue)} mehr`,
+  );
+  plusButton.addEventListener("click", () => changeDeposit(depositCents, 1));
+
+  counter.append(minusButton, countOutput, plusButton);
+  card.append(rate, counter);
+  return card;
+}
+
+function createDepositCounterButton(iconFile, label) {
+  const button = document.createElement("button");
+  button.className = "counter__button";
+  button.type = "button";
+  button.setAttribute("aria-label", label);
+
+  const icon = document.createElement("img");
+  icon.className = "button-icon";
+  icon.src = `assets/icons/${iconFile}`;
+  icon.alt = "";
+  icon.setAttribute("aria-hidden", "true");
+
+  button.append(icon);
+  return button;
 }
 
 // ------------------------------
@@ -499,7 +572,7 @@ function renderDeposit() {
 
 function showReceipt() {
   const drinkTotal = getDrinkTotal();
-  const depositTotal = state.depositCount * party.returnDeposit;
+  const depositTotal = getReturnedDepositTotal();
   const finalTotal = drinkTotal - depositTotal;
 
   elements.receiptPartyName.textContent = party.name;
@@ -518,10 +591,19 @@ function showReceipt() {
     );
   });
 
-  if (state.depositCount > 0) {
-    elements.receiptItems.append(
-      createReceiptRow(`${state.depositCount}× Pfand zurück`, -depositTotal, true),
-    );
+  const returnedDeposits = getSelectedReturnedDeposits();
+
+  if (returnedDeposits.length > 0) {
+    returnedDeposits.forEach(({ depositCents, count }) => {
+      const depositValue = depositCents / 100;
+      elements.receiptItems.append(
+        createReceiptRow(
+          `${count}× Pfand zurück (${formatMoney(depositValue)})`,
+          -(depositValue * count),
+          true,
+        ),
+      );
+    });
   } else {
     elements.receiptItems.append(createReceiptNote("Kein Pfand zurück"));
   }
@@ -572,7 +654,7 @@ function createReceiptNote(text) {
 
 function finishOrder() {
   state.quantities.clear();
-  state.depositCount = 0;
+  state.depositCounts.clear();
   renderOrder();
   renderDeposit();
   showScreen("products");
@@ -614,15 +696,66 @@ function getDrinkUnitTotal(drink) {
   return drink.price + drink.deposit;
 }
 
+function getReturnDepositValues() {
+  const values = [];
+  const knownValues = new Set();
+
+  const addValue = (value) => {
+    const depositCents = moneyToCents(value);
+
+    if (depositCents > 0 && !knownValues.has(depositCents)) {
+      knownValues.add(depositCents);
+      values.push(depositCents);
+    }
+  };
+
+  party.returnDeposits.forEach(addValue);
+  party.drinks.forEach((drink) => addValue(drink.deposit));
+  state.depositCounts.forEach((count, depositCents) => {
+    if (count > 0 && !knownValues.has(depositCents)) {
+      knownValues.add(depositCents);
+      values.push(depositCents);
+    }
+  });
+
+  return values.sort((firstValue, secondValue) => firstValue - secondValue);
+}
+
+function getSelectedReturnedDeposits() {
+  return getReturnDepositValues()
+    .map((depositCents) => ({
+      depositCents,
+      count: state.depositCounts.get(depositCents) ?? 0,
+    }))
+    .filter(({ count }) => count > 0);
+}
+
+function getReturnedDepositCount() {
+  return [...state.depositCounts.values()].reduce((sum, count) => sum + count, 0);
+}
+
+function getReturnedDepositTotal() {
+  return getSelectedReturnedDeposits().reduce(
+    (sum, { depositCents, count }) => sum + (depositCents / 100) * count,
+    0,
+  );
+}
+
+function moneyToCents(value) {
+  return Math.round(value * 100);
+}
+
 function getConfiguredDrink(drinkId) {
   return configuredParty.drinks.find((drink) => drink.id === drinkId);
 }
 
 function hasDrinkPriceOverrides() {
-  return party.drinks.some((drink) => {
-    const defaultDrink = getConfiguredDrink(drink.id);
-    return drink.price !== defaultDrink.price || drink.deposit !== defaultDrink.deposit;
-  });
+  return party.drinks.some((drink) => !drinkUsesDefaultValues(drink));
+}
+
+function drinkUsesDefaultValues(drink) {
+  const defaultDrink = getConfiguredDrink(drink.id);
+  return drink.price === defaultDrink.price && drink.deposit === defaultDrink.deposit;
 }
 
 function normalizeMoneyValue(value) {
@@ -748,8 +881,13 @@ function validateParty(partyToValidate) {
     throw new Error("Die aktive Party braucht einen Namen und eine Getränkeliste.");
   }
 
-  if (!Number.isFinite(partyToValidate.returnDeposit) || partyToValidate.returnDeposit < 0) {
-    throw new Error("Der Rückgabe-Pfandwert muss eine positive Zahl oder 0 sein.");
+  if (
+    !Array.isArray(partyToValidate.returnDeposits)
+    || partyToValidate.returnDeposits.some(
+      (deposit) => !Number.isFinite(deposit) || deposit <= 0,
+    )
+  ) {
+    throw new Error("Rückgabe-Pfandwerte müssen als Liste positiver Zahlen angegeben werden.");
   }
 
   const ids = new Set();
