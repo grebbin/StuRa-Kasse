@@ -215,6 +215,11 @@ h1 {
   font-weight: 700;
   line-height: 1;
   letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.product-tile__abbreviation--long {
+  font-size: clamp(1.8rem, 8vw, 2.25rem);
 }
 
 .product-tile__name {
@@ -657,6 +662,23 @@ h1 {
   width: 100%;
 }
 
+.price-dialog__reset-all {
+  width: 100%;
+  min-height: 44px;
+  margin-top: 12px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 12px;
+  color: var(--danger);
+  background: transparent;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.price-dialog__reset-all:not(:disabled):active {
+  background: var(--background);
+}
+
 .toast {
   position: fixed;
   bottom: calc(102px + env(safe-area-inset-bottom));
@@ -692,6 +714,20 @@ noscript {
 @media (max-width: 420px) {
   .price-dialog__fields {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 620px) {
+  .price-dialog--input-active {
+    top: max(12px, env(safe-area-inset-top));
+    bottom: auto;
+    margin-top: 0;
+    margin-bottom: 0;
+  }
+
+  .price-dialog--keyboard-open {
+    top: var(--visible-viewport-top);
+    max-height: var(--visible-viewport-height);
   }
 }
 

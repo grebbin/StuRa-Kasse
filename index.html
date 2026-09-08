@@ -24,8 +24,14 @@
             <p class="eyebrow" id="party-name">Kasse</p>
             <h1 id="products-title">Getränkeliste</h1>
           </div>
-          <button class="text-button" id="reset-button" type="button" disabled>
-            Zurücksetzen
+          <button
+            class="text-button"
+            id="reset-button"
+            type="button"
+            aria-label="Aktuelle Getränkeauswahl leeren"
+            disabled
+          >
+            Leeren
           </button>
         </header>
 
@@ -124,7 +130,7 @@
         </header>
 
         <p class="price-dialog__description">
-          Diese Werte werden nur auf diesem Gerät und für diese Party gespeichert.
+          Die Werte werden nur auf diesem Gerät gespeichert.
         </p>
 
         <div class="price-dialog__fields">
@@ -164,11 +170,15 @@
         <p class="price-dialog__default" id="price-dialog-default"></p>
 
         <footer class="price-dialog__actions">
-          <button class="secondary-button" id="price-reset-button" type="button">
-            Standardwerte
+          <button class="secondary-button" id="price-reset-button" type="button" disabled>
+            Zurücksetzen
           </button>
           <button class="primary-button price-dialog__save" type="submit">Speichern</button>
         </footer>
+
+        <button class="price-dialog__reset-all" id="price-reset-all-button" type="button" disabled>
+          Alle Werte zurücksetzen
+        </button>
       </form>
     </dialog>
 

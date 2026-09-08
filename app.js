@@ -69,11 +69,14 @@ const elements = {
   editDrinkPrice: document.querySelector("#edit-drink-price"),
   editDrinkDeposit: document.querySelector("#edit-drink-deposit"),
   priceResetButton: document.querySelector("#price-reset-button"),
+  priceResetAllButton: document.querySelector("#price-reset-all-button"),
   priceDialogClose: document.querySelector("#price-dialog-close"),
   toast: document.querySelector("#toast"),
 };
 
 let toastTimer;
+let priceDialogViewportHeight;
+let priceDialogViewportFrame;
 
 // ------------------------------
 // Start und Ereignisse
@@ -109,13 +112,41 @@ function bindEvents() {
 
   elements.priceForm.addEventListener("submit", saveEditedDrinkPrices);
   elements.priceResetButton.addEventListener("click", resetEditedDrinkPrices);
+  elements.priceResetAllButton.addEventListener("click", resetAllDrinkPrices);
   elements.priceDialogClose.addEventListener("click", closePriceDialog);
   [elements.editDrinkPrice, elements.editDrinkDeposit].forEach((input) => {
     input.addEventListener("blur", () => formatMoneyInputField(input));
+    input.addEventListener("input", updatePriceResetButtons);
   });
+  elements.priceDialog.addEventListener("focusin", (event) => {
+    if (event.target.matches(".price-field__input input")) {
+      elements.priceDialog.classList.add("price-dialog--input-active");
+      schedulePriceDialogViewportUpdate();
+    }
+  });
+  elements.priceDialog.addEventListener("focusout", () => {
+    window.setTimeout(() => {
+      if (!elements.priceDialog.contains(document.activeElement)) {
+        elements.priceDialog.classList.remove("price-dialog--input-active");
+      }
+    });
+  });
+  elements.priceDialog.addEventListener("click", closePriceDialogFromBackdrop);
   elements.priceDialog.addEventListener("close", () => {
     state.editingDrinkId = null;
+    priceDialogViewportHeight = undefined;
+    elements.priceDialog.classList.remove(
+      "price-dialog--input-active",
+      "price-dialog--keyboard-open",
+    );
+    elements.priceDialog.style.removeProperty("--visible-viewport-top");
+    elements.priceDialog.style.removeProperty("--visible-viewport-height");
   });
+
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener("resize", schedulePriceDialogViewportUpdate);
+    window.visualViewport.addEventListener("scroll", schedulePriceDialogViewportUpdate);
+  }
 }
 
 // ------------------------------
@@ -142,7 +173,7 @@ function renderProductTiles() {
       `${drink.name} für ${formatMoney(drink.price)}${depositLabel} hinzufügen`,
     );
     addButton.innerHTML = `
-      <span class="product-tile__abbreviation">${escapeHtml(drink.abbreviation)}</span>
+      <span class="product-tile__abbreviation${drink.abbreviation.length > 2 ? " product-tile__abbreviation--long" : ""}">${escapeHtml(drink.abbreviation)}</span>
       <span class="product-tile__name">${escapeHtml(drink.name)}</span>
       <span class="product-tile__price">
         <span>${formatMoney(drink.price)}</span>${drink.deposit > 0 ? `<span>+ ${formatMoney(drink.deposit)}</span>` : ""}
@@ -251,12 +282,67 @@ function openPriceDialog(drinkId) {
   elements.editDrinkPrice.value = formatMoneyInput(drink.price);
   elements.editDrinkDeposit.value = formatMoneyInput(drink.deposit);
   elements.priceDialogDefault.textContent = `Standard: ${formatMoney(defaultDrink.price)} + ${formatMoney(defaultDrink.deposit)} Pfand`;
+  updatePriceResetButtons();
   elements.priceDialog.showModal();
+  priceDialogViewportHeight = window.visualViewport?.height ?? window.innerHeight;
   elements.priceDialog.focus();
 }
 
 function closePriceDialog() {
   elements.priceDialog.close();
+}
+
+function closePriceDialogFromBackdrop(event) {
+  if (event.target !== elements.priceDialog) {
+    return;
+  }
+
+  const dialogBounds = elements.priceDialog.getBoundingClientRect();
+  const clickedOutsideDialog = (
+    event.clientX < dialogBounds.left
+    || event.clientX > dialogBounds.right
+    || event.clientY < dialogBounds.top
+    || event.clientY > dialogBounds.bottom
+  );
+
+  if (clickedOutsideDialog) {
+    closePriceDialog();
+  }
+}
+
+function schedulePriceDialogViewportUpdate() {
+  window.cancelAnimationFrame(priceDialogViewportFrame);
+  priceDialogViewportFrame = window.requestAnimationFrame(updatePriceDialogViewport);
+}
+
+function updatePriceDialogViewport() {
+  if (!elements.priceDialog.open || !window.visualViewport) {
+    return;
+  }
+
+  const viewport = window.visualViewport;
+  const baselineHeight = priceDialogViewportHeight ?? viewport.height;
+  const keyboardIsOpen = viewport.height < baselineHeight - 80;
+
+  elements.priceDialog.classList.toggle(
+    "price-dialog--keyboard-open",
+    keyboardIsOpen,
+  );
+  elements.priceDialog.style.setProperty(
+    "--visible-viewport-top",
+    `${viewport.offsetTop + 12}px`,
+  );
+  elements.priceDialog.style.setProperty(
+    "--visible-viewport-height",
+    `${Math.max(220, viewport.height - 24)}px`,
+  );
+
+  if (keyboardIsOpen && document.activeElement?.matches(".price-field__input input")) {
+    document.activeElement.closest(".price-field").scrollIntoView({
+      block: "center",
+      behavior: "auto",
+    });
+  }
 }
 
 function saveEditedDrinkPrices(event) {
@@ -311,6 +397,39 @@ function resetEditedDrinkPrices() {
   );
 }
 
+function resetAllDrinkPrices() {
+  party.drinks.forEach((drink) => {
+    const defaultDrink = getConfiguredDrink(drink.id);
+    drink.price = defaultDrink.price;
+    drink.deposit = defaultDrink.deposit;
+  });
+
+  const wasStored = writePriceOverrides({});
+
+  renderProductTiles();
+  renderOrder();
+  closePriceDialog();
+  showToast(
+    wasStored
+      ? "Alle Werte wurden zurückgesetzt"
+      : "Zurückgesetzt, aber Gerätespeicher nicht verfügbar",
+  );
+}
+
+function updatePriceResetButtons() {
+  const defaultDrink = getConfiguredDrink(state.editingDrinkId);
+  const enteredPrice = parseMoneyInput(elements.editDrinkPrice.value);
+  const enteredDeposit = parseMoneyInput(elements.editDrinkDeposit.value);
+  const currentDrinkUsesDefaults = Boolean(
+    defaultDrink
+      && enteredPrice === defaultDrink.price
+      && enteredDeposit === defaultDrink.deposit,
+  );
+
+  elements.priceResetButton.disabled = currentDrinkUsesDefaults;
+  elements.priceResetAllButton.disabled = !hasDrinkPriceOverrides();
+}
+
 function changeDrinkQuantity(drinkId, difference) {
   const currentQuantity = state.quantities.get(drinkId) ?? 0;
   const nextQuantity = Math.max(0, currentQuantity + difference);
@@ -352,7 +471,7 @@ function resetOrderWithFeedback() {
   state.depositCount = 0;
   renderOrder();
   renderDeposit();
-  showToast("Bestellung zurückgesetzt");
+  showToast("Bestellung geleert");
 }
 
 // ------------------------------
@@ -497,6 +616,13 @@ function getDrinkUnitTotal(drink) {
 
 function getConfiguredDrink(drinkId) {
   return configuredParty.drinks.find((drink) => drink.id === drinkId);
+}
+
+function hasDrinkPriceOverrides() {
+  return party.drinks.some((drink) => {
+    const defaultDrink = getConfiguredDrink(drink.id);
+    return drink.price !== defaultDrink.price || drink.deposit !== defaultDrink.deposit;
+  });
 }
 
 function normalizeMoneyValue(value) {

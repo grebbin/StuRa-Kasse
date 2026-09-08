@@ -15,12 +15,12 @@ const PARTIES = {
     returnDeposit: 1.0,
     drinks: [
       // price ist der Getränkepreis, deposit das beim Verkauf berechnete Pfand.
-      { id: "bier", abbreviation: "BI", name: "Bier", price: 2.5, deposit: 1.0 },
-      { id: "radler", abbreviation: "RA", name: "Radler", price: 2.5, deposit: 1.0 },
-      { id: "cock", abbreviation: "CO", name: "Cocktail", price: 6.0, deposit: 1.0 },
-      { id: "wasser", abbreviation: "WA", name: "Wasser", price: 1.5, deposit: 1.0 },
-      { id: "soft", abbreviation: "SO", name: "Mate, Cola, Eistee, Sprite, Limo", price: 2.5, deposit: 1.0 },
-      { id: "shot", abbreviation: "SH", name: "Shot", price: 1.5, deposit: 1.0 },
+      { id: "bier", abbreviation: "BIER", name: "Bier", price: 2.5, deposit: 1.0 },
+      { id: "radler", abbreviation: "RADL", name: "Radler", price: 2.5, deposit: 1.0 },
+      { id: "cock", abbreviation: "COCK", name: "Cocktail", price: 6.0, deposit: 1.0 },
+      { id: "wasser", abbreviation: "WASS", name: "Wasser", price: 1.5, deposit: 1.0 },
+      { id: "soft", abbreviation: "SOFT", name: "Mate, Cola, Eistee, Sprite, Limo", price: 2.5, deposit: 1.0 },
+      { id: "shot", abbreviation: "SHOT", name: "Shot", price: 1.5, deposit: 1.0 },
     ],
   },
 
@@ -28,8 +28,8 @@ const PARTIES = {
     name: "Sommerfest",
     returnDeposit: 0.5,
     drinks: [
-      { id: "limo", abbreviation: "LI", name: "Limonade", price: 2.0, deposit: 0.5 },
-      { id: "wasser", abbreviation: "WA", name: "Wasser", price: 1.0, deposit: 0.5 },
+      { id: "limo", abbreviation: "LIMO", name: "Limonade", price: 2.0, deposit: 0.5 },
+      { id: "wasser", abbreviation: "WASS", name: "Wasser", price: 1.0, deposit: 0.5 },
     ],
   },
 };
