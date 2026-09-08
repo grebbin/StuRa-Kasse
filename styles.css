@@ -231,9 +231,12 @@ h1 {
 }
 
 .product-tile__price {
+  display: flex;
   margin-top: 2px;
   color: var(--muted);
   font-size: 0.78rem;
+  flex-wrap: wrap;
+  column-gap: 4px;
 }
 
 .product-tile__count {
@@ -523,6 +526,137 @@ h1 {
   font-size: 1.12rem;
 }
 
+/* Preisänderung nach langem Drücken auf eine Getränkekachel */
+.price-dialog {
+  width: min(calc(100% - 32px), 460px);
+  max-height: calc(100dvh - 32px);
+  margin: auto;
+  padding: 0;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  color: var(--text);
+  background: var(--surface);
+  box-shadow: 0 24px 70px rgb(20 23 31 / 24%);
+  font-family: var(--font-sans);
+}
+
+.price-dialog::backdrop {
+  background: rgb(20 23 31 / 48%);
+  backdrop-filter: blur(3px);
+}
+
+.price-dialog__form {
+  padding: 24px;
+}
+
+.price-dialog__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.price-dialog__header h2 {
+  margin: 0;
+  font-size: 1.55rem;
+  line-height: 1.1;
+}
+
+.price-dialog__close {
+  display: grid;
+  flex: 0 0 44px;
+  width: 44px;
+  height: 44px;
+  margin: -7px -7px 0 0;
+  padding: 0;
+  border: 0;
+  border-radius: 13px;
+  background: transparent;
+  cursor: pointer;
+  place-items: center;
+}
+
+.price-dialog__close:active {
+  background: var(--background);
+}
+
+.price-dialog__description {
+  margin: 14px 0 22px;
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.price-dialog__fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.price-field {
+  display: grid;
+  gap: 7px;
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.price-field__input {
+  display: flex;
+  min-height: 56px;
+  padding: 0 15px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  align-items: center;
+  gap: 7px;
+}
+
+.price-field__input:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgb(25 94 230 / 16%);
+}
+
+.price-field__input input {
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  color: var(--text);
+  background: transparent;
+  font: 700 1.2rem/1 var(--font-mono);
+}
+
+.price-field__input > span {
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.price-dialog__default {
+  margin: 12px 0 24px;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.price-dialog__actions {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 9px;
+}
+
+.price-dialog__actions .primary-button,
+.price-dialog__actions .secondary-button {
+  min-height: 52px;
+  padding-right: 16px;
+  padding-left: 16px;
+}
+
+.price-dialog__save {
+  width: 100%;
+}
+
 .toast {
   position: fixed;
   bottom: calc(102px + env(safe-area-inset-bottom));
@@ -553,6 +687,12 @@ noscript {
   padding: 24px;
   color: var(--danger);
   text-align: center;
+}
+
+@media (max-width: 420px) {
+  .price-dialog__fields {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* Auf größeren Bildschirmen bekommt die App einen Kartenrahmen. */

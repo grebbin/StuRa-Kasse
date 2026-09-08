@@ -6,20 +6,29 @@
 // Zustand und Konfiguration
 // ------------------------------
 
-const party = PARTIES[ACTIVE_PARTY_ID];
+const configuredParty = PARTIES[ACTIVE_PARTY_ID];
 
-if (!party) {
+if (!configuredParty) {
   throw new Error(
     `Die Party "${ACTIVE_PARTY_ID}" wurde nicht in config.js gefunden.`,
   );
 }
 
-validateParty(party);
+validateParty(configuredParty);
+
+const PRICE_OVERRIDE_STORAGE_KEY = `stura-kasse:price-overrides:${ACTIVE_PARTY_ID}`;
+const party = {
+  ...configuredParty,
+  drinks: configuredParty.drinks.map((drink) => ({ ...drink })),
+};
+
+applyStoredPriceOverrides();
 
 const state = {
   // Map speichert: Getränke-ID -> ausgewählte Anzahl
   quantities: new Map(),
   depositCount: 0,
+  editingDrinkId: null,
 };
 
 const euro = new Intl.NumberFormat("de-DE", {
@@ -53,6 +62,14 @@ const elements = {
   grandTotal: document.querySelector("#grand-total"),
   editButton: document.querySelector("#edit-button"),
   finishButton: document.querySelector("#finish-button"),
+  priceDialog: document.querySelector("#price-dialog"),
+  priceForm: document.querySelector("#price-form"),
+  priceDialogTitle: document.querySelector("#price-dialog-title"),
+  priceDialogDefault: document.querySelector("#price-dialog-default"),
+  editDrinkPrice: document.querySelector("#edit-drink-price"),
+  editDrinkDeposit: document.querySelector("#edit-drink-deposit"),
+  priceResetButton: document.querySelector("#price-reset-button"),
+  priceDialogClose: document.querySelector("#price-dialog-close"),
   toast: document.querySelector("#toast"),
 };
 
@@ -67,7 +84,7 @@ initialize();
 function initialize() {
   document.title = `${party.name} · Kasse`;
   elements.partyName.textContent = party.name;
-  elements.depositRate.textContent = `${formatMoney(party.deposit)} Pfand pro Stück`;
+  elements.depositRate.textContent = `${formatMoney(party.returnDeposit)} Pfand pro Stück`;
 
   renderProductTiles();
   renderOrder();
@@ -89,6 +106,16 @@ function bindEvents() {
   elements.calculateButton.addEventListener("click", showReceipt);
   elements.editButton.addEventListener("click", () => showScreen("products"));
   elements.finishButton.addEventListener("click", finishOrder);
+
+  elements.priceForm.addEventListener("submit", saveEditedDrinkPrices);
+  elements.priceResetButton.addEventListener("click", resetEditedDrinkPrices);
+  elements.priceDialogClose.addEventListener("click", closePriceDialog);
+  [elements.editDrinkPrice, elements.editDrinkDeposit].forEach((input) => {
+    input.addEventListener("blur", () => formatMoneyInputField(input));
+  });
+  elements.priceDialog.addEventListener("close", () => {
+    state.editingDrinkId = null;
+  });
 }
 
 // ------------------------------
@@ -106,13 +133,22 @@ function renderProductTiles() {
     const addButton = document.createElement("button");
     addButton.className = "product-tile__add";
     addButton.type = "button";
-    addButton.setAttribute("aria-label", `${drink.name} für ${formatMoney(drink.price)} hinzufügen`);
+    addButton.title = "Lange drücken, um Preis und Pfand anzupassen";
+    const depositLabel = drink.deposit > 0
+      ? ` + ${formatMoney(drink.deposit)} Pfand`
+      : "";
+    addButton.setAttribute(
+      "aria-label",
+      `${drink.name} für ${formatMoney(drink.price)}${depositLabel} hinzufügen`,
+    );
     addButton.innerHTML = `
       <span class="product-tile__abbreviation">${escapeHtml(drink.abbreviation)}</span>
       <span class="product-tile__name">${escapeHtml(drink.name)}</span>
-      <span class="product-tile__price">${formatMoney(drink.price)}</span>
+      <span class="product-tile__price">
+        <span>${formatMoney(drink.price)}</span>${drink.deposit > 0 ? `<span>+ ${formatMoney(drink.deposit)}</span>` : ""}
+      </span>
     `;
-    addButton.addEventListener("click", () => changeDrinkQuantity(drink.id, 1));
+    attachDrinkTileInteractions(addButton, drink.id);
 
     const countBadge = document.createElement("span");
     countBadge.className = "product-tile__count";
@@ -136,6 +172,143 @@ function renderProductTiles() {
     tile.append(addButton, countBadge, removeButton);
     elements.productGrid.append(tile);
   });
+}
+
+function attachDrinkTileInteractions(button, drinkId) {
+  const longPressDuration = 600;
+  const movementTolerance = 12;
+  let pressTimer;
+  let pointerStart;
+  let suppressClickUntil = 0;
+
+  const cancelLongPress = () => {
+    window.clearTimeout(pressTimer);
+    pressTimer = undefined;
+    pointerStart = undefined;
+  };
+
+  button.addEventListener("pointerdown", (event) => {
+    if (event.pointerType === "mouse" && event.button !== 0) {
+      return;
+    }
+
+    cancelLongPress();
+    pointerStart = { x: event.clientX, y: event.clientY };
+    pressTimer = window.setTimeout(() => {
+      suppressClickUntil = Date.now() + 1000;
+      openPriceDialog(drinkId);
+      cancelLongPress();
+    }, longPressDuration);
+  });
+
+  button.addEventListener("pointermove", (event) => {
+    if (!pointerStart) {
+      return;
+    }
+
+    const distance = Math.hypot(
+      event.clientX - pointerStart.x,
+      event.clientY - pointerStart.y,
+    );
+
+    if (distance > movementTolerance) {
+      cancelLongPress();
+    }
+  });
+
+  button.addEventListener("pointerup", cancelLongPress);
+  button.addEventListener("pointercancel", cancelLongPress);
+  button.addEventListener("pointerleave", cancelLongPress);
+
+  button.addEventListener("click", (event) => {
+    if (Date.now() < suppressClickUntil) {
+      event.preventDefault();
+      return;
+    }
+
+    changeDrinkQuantity(drinkId, 1);
+  });
+
+  // Am Desktop steht Rechtsklick als Alternative zum langen Drücken bereit.
+  button.addEventListener("contextmenu", (event) => {
+    event.preventDefault();
+    suppressClickUntil = Date.now() + 1000;
+    openPriceDialog(drinkId);
+    cancelLongPress();
+  });
+}
+
+function openPriceDialog(drinkId) {
+  const drink = party.drinks.find((entry) => entry.id === drinkId);
+  const defaultDrink = getConfiguredDrink(drinkId);
+
+  if (!drink || !defaultDrink || elements.priceDialog.open) {
+    return;
+  }
+
+  state.editingDrinkId = drinkId;
+  elements.priceDialogTitle.textContent = `${drink.abbreviation} · ${drink.name}`;
+  elements.editDrinkPrice.value = formatMoneyInput(drink.price);
+  elements.editDrinkDeposit.value = formatMoneyInput(drink.deposit);
+  elements.priceDialogDefault.textContent = `Standard: ${formatMoney(defaultDrink.price)} + ${formatMoney(defaultDrink.deposit)} Pfand`;
+  elements.priceDialog.showModal();
+  elements.priceDialog.focus();
+}
+
+function closePriceDialog() {
+  elements.priceDialog.close();
+}
+
+function saveEditedDrinkPrices(event) {
+  event.preventDefault();
+
+  if (!elements.priceForm.reportValidity()) {
+    return;
+  }
+
+  const drink = party.drinks.find((entry) => entry.id === state.editingDrinkId);
+  const price = parseMoneyInput(elements.editDrinkPrice.value);
+  const deposit = parseMoneyInput(elements.editDrinkDeposit.value);
+
+  if (!drink || price === null || deposit === null) {
+    showToast("Bitte gültige Beträge eingeben");
+    return;
+  }
+
+  drink.price = price;
+  drink.deposit = deposit;
+  const wasStored = persistDrinkOverride(drink);
+
+  renderProductTiles();
+  renderOrder();
+  closePriceDialog();
+  showToast(
+    wasStored
+      ? `${drink.abbreviation}: Preise gespeichert`
+      : "Geändert, aber nicht dauerhaft gespeichert",
+  );
+}
+
+function resetEditedDrinkPrices() {
+  const drink = party.drinks.find((entry) => entry.id === state.editingDrinkId);
+  const defaultDrink = getConfiguredDrink(state.editingDrinkId);
+
+  if (!drink || !defaultDrink) {
+    return;
+  }
+
+  drink.price = defaultDrink.price;
+  drink.deposit = defaultDrink.deposit;
+  const wasStored = removeDrinkOverride(drink.id);
+
+  renderProductTiles();
+  renderOrder();
+  closePriceDialog();
+  showToast(
+    wasStored
+      ? `${drink.abbreviation}: Standardwerte wiederhergestellt`
+      : "Zurückgesetzt, aber Gerätespeicher nicht verfügbar",
+  );
 }
 
 function changeDrinkQuantity(drinkId, difference) {
@@ -194,7 +367,7 @@ function changeDeposit(difference) {
 function renderDeposit() {
   elements.depositCount.value = state.depositCount;
   elements.depositCount.textContent = state.depositCount;
-  elements.depositTotal.textContent = `− ${formatMoney(state.depositCount * party.deposit)}`;
+  elements.depositTotal.textContent = `− ${formatMoney(state.depositCount * party.returnDeposit)}`;
   elements.depositMinus.disabled = state.depositCount === 0;
   elements.calculateButton.textContent = state.depositCount === 0
     ? "Berechnen ohne Pfand"
@@ -207,7 +380,7 @@ function renderDeposit() {
 
 function showReceipt() {
   const drinkTotal = getDrinkTotal();
-  const depositTotal = state.depositCount * party.deposit;
+  const depositTotal = state.depositCount * party.returnDeposit;
   const finalTotal = drinkTotal - depositTotal;
 
   elements.receiptPartyName.textContent = party.name;
@@ -219,7 +392,10 @@ function showReceipt() {
 
   getSelectedDrinks().forEach(({ drink, quantity }) => {
     elements.receiptItems.append(
-      createReceiptRow(`${quantity}× ${drink.name}`, drink.price * quantity),
+      createReceiptRow(
+        `${quantity}× ${drink.name}`,
+        formatDrinkReceiptAmount(drink, quantity),
+      ),
     );
   });
 
@@ -249,11 +425,23 @@ function createReceiptRow(label, amount, isDeduction = false) {
   labelElement.textContent = label;
 
   const amountElement = document.createElement("span");
-  amountElement.textContent = `${isDeduction ? "− " : ""}${formatMoney(Math.abs(amount))}`;
+  amountElement.textContent = typeof amount === "string"
+    ? amount
+    : `${isDeduction ? "− " : ""}${formatMoney(Math.abs(amount))}`;
   amountElement.classList.toggle("receipt__deduction", isDeduction);
 
   row.append(labelElement, amountElement);
   return row;
+}
+
+function formatDrinkReceiptAmount(drink, quantity) {
+  const drinkPrice = formatMoney(drink.price * quantity);
+
+  if (drink.deposit === 0) {
+    return drinkPrice;
+  }
+
+  return `${drinkPrice} + ${formatMoney(drink.deposit * quantity)}`;
 }
 
 function createReceiptNote(text) {
@@ -298,9 +486,120 @@ function getTotalDrinkCount() {
 
 function getDrinkTotal() {
   return getSelectedDrinks().reduce(
-    (sum, { drink, quantity }) => sum + drink.price * quantity,
+    (sum, { drink, quantity }) => sum + getDrinkUnitTotal(drink) * quantity,
     0,
   );
+}
+
+function getDrinkUnitTotal(drink) {
+  return drink.price + drink.deposit;
+}
+
+function getConfiguredDrink(drinkId) {
+  return configuredParty.drinks.find((drink) => drink.id === drinkId);
+}
+
+function normalizeMoneyValue(value) {
+  if (!Number.isFinite(value) || value < 0) {
+    return null;
+  }
+
+  return Math.round(value * 100) / 100;
+}
+
+function parseMoneyInput(value) {
+  const normalizedValue = value.trim().replace(",", ".");
+
+  if (!/^\d+(?:\.\d{1,2})?$/.test(normalizedValue)) {
+    return null;
+  }
+
+  return normalizeMoneyValue(Number(normalizedValue));
+}
+
+function formatMoneyInput(value) {
+  return value.toFixed(2).replace(".", ",");
+}
+
+function formatMoneyInputField(input) {
+  const value = parseMoneyInput(input.value);
+
+  if (value !== null) {
+    input.value = formatMoneyInput(value);
+  }
+}
+
+function applyStoredPriceOverrides() {
+  const overrides = readPriceOverrides();
+
+  party.drinks.forEach((drink) => {
+    const override = overrides[drink.id];
+
+    if (!override) {
+      return;
+    }
+
+    const storedPrice = normalizeMoneyValue(override.price);
+    const storedDeposit = normalizeMoneyValue(override.deposit);
+
+    if (storedPrice !== null && storedDeposit !== null) {
+      drink.price = storedPrice;
+      drink.deposit = storedDeposit;
+    }
+  });
+}
+
+function persistDrinkOverride(drink) {
+  const defaultDrink = getConfiguredDrink(drink.id);
+  const overrides = readPriceOverrides();
+
+  if (drink.price === defaultDrink.price && drink.deposit === defaultDrink.deposit) {
+    delete overrides[drink.id];
+  } else {
+    overrides[drink.id] = {
+      price: drink.price,
+      deposit: drink.deposit,
+    };
+  }
+
+  return writePriceOverrides(overrides);
+}
+
+function removeDrinkOverride(drinkId) {
+  const overrides = readPriceOverrides();
+  delete overrides[drinkId];
+  return writePriceOverrides(overrides);
+}
+
+function readPriceOverrides() {
+  try {
+    const storedValue = window.localStorage.getItem(PRICE_OVERRIDE_STORAGE_KEY);
+    const parsedValue = storedValue ? JSON.parse(storedValue) : {};
+
+    return parsedValue && typeof parsedValue === "object" && !Array.isArray(parsedValue)
+      ? parsedValue
+      : {};
+  } catch (error) {
+    console.warn("Gespeicherte Preisanpassungen konnten nicht gelesen werden.", error);
+    return {};
+  }
+}
+
+function writePriceOverrides(overrides) {
+  try {
+    if (Object.keys(overrides).length === 0) {
+      window.localStorage.removeItem(PRICE_OVERRIDE_STORAGE_KEY);
+    } else {
+      window.localStorage.setItem(
+        PRICE_OVERRIDE_STORAGE_KEY,
+        JSON.stringify(overrides),
+      );
+    }
+    return true;
+  } catch (error) {
+    console.warn("Preisanpassungen konnten nicht gespeichert werden.", error);
+    return false;
+  }
 }
 
 function formatMoney(value) {
@@ -323,14 +622,24 @@ function validateParty(partyToValidate) {
     throw new Error("Die aktive Party braucht einen Namen und eine Getränkeliste.");
   }
 
-  if (!Number.isFinite(partyToValidate.deposit) || partyToValidate.deposit < 0) {
-    throw new Error("Der Pfandwert muss eine positive Zahl oder 0 sein.");
+  if (!Number.isFinite(partyToValidate.returnDeposit) || partyToValidate.returnDeposit < 0) {
+    throw new Error("Der Rückgabe-Pfandwert muss eine positive Zahl oder 0 sein.");
   }
 
   const ids = new Set();
   partyToValidate.drinks.forEach((drink) => {
-    if (!drink.id || !drink.abbreviation || !drink.name || !Number.isFinite(drink.price)) {
-      throw new Error("Jedes Getränk braucht ID, Abkürzung, Namen und Preis.");
+    if (
+      !drink.id
+      || !drink.abbreviation
+      || !drink.name
+      || !Number.isFinite(drink.price)
+      || drink.price < 0
+      || !Number.isFinite(drink.deposit)
+      || drink.deposit < 0
+    ) {
+      throw new Error(
+        "Jedes Getränk braucht ID, Abkürzung, Namen sowie einen gültigen Preis und Pfandwert.",
+      );
     }
     if (ids.has(drink.id)) {
       throw new Error(`Die Getränke-ID "${drink.id}" ist doppelt vergeben.`);

@@ -106,6 +106,72 @@
       </section>
     </main>
 
+    <dialog class="price-dialog" id="price-dialog" aria-labelledby="price-dialog-title" tabindex="-1">
+      <form class="price-dialog__form" id="price-form">
+        <header class="price-dialog__header">
+          <div>
+            <p class="eyebrow">Getränk anpassen</p>
+            <h2 id="price-dialog-title">Getränk</h2>
+          </div>
+          <button
+            class="price-dialog__close"
+            id="price-dialog-close"
+            type="button"
+            aria-label="Dialog schließen"
+          >
+            <img class="button-icon" src="assets/icons/close.svg" alt="" aria-hidden="true" />
+          </button>
+        </header>
+
+        <p class="price-dialog__description">
+          Diese Werte werden nur auf diesem Gerät und für diese Party gespeichert.
+        </p>
+
+        <div class="price-dialog__fields">
+          <label class="price-field" for="edit-drink-price">
+            <span>Getränkepreis</span>
+            <span class="price-field__input">
+              <input
+                id="edit-drink-price"
+                name="drink-price"
+                type="text"
+                inputmode="decimal"
+                pattern="[0-9]+([,.][0-9]{1,2})?"
+                title="Betrag mit höchstens zwei Nachkommastellen"
+                required
+              />
+              <span aria-hidden="true">€</span>
+            </span>
+          </label>
+
+          <label class="price-field" for="edit-drink-deposit">
+            <span>Pfand</span>
+            <span class="price-field__input">
+              <input
+                id="edit-drink-deposit"
+                name="drink-deposit"
+                type="text"
+                inputmode="decimal"
+                pattern="[0-9]+([,.][0-9]{1,2})?"
+                title="Betrag mit höchstens zwei Nachkommastellen"
+                required
+              />
+              <span aria-hidden="true">€</span>
+            </span>
+          </label>
+        </div>
+
+        <p class="price-dialog__default" id="price-dialog-default"></p>
+
+        <footer class="price-dialog__actions">
+          <button class="secondary-button" id="price-reset-button" type="button">
+            Standardwerte
+          </button>
+          <button class="primary-button price-dialog__save" type="submit">Speichern</button>
+        </footer>
+      </form>
+    </dialog>
+
     <div class="toast" id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
 
     <noscript>Diese Kassenhilfe benötigt JavaScript.</noscript>
