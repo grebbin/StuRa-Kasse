@@ -1,4 +1,4 @@
-/* global ACTIVE_PARTY_ID, PARTIES */
+/* global ACTIVE_PARTY_ID, DATA_COLLECTION, PARTIES */
 
 "use strict";
 
@@ -17,6 +17,9 @@ if (!configuredParty) {
 validateParty(configuredParty);
 
 const PRICE_OVERRIDE_STORAGE_KEY = `stura-kasse:price-overrides:${ACTIVE_PARTY_ID}`;
+const ORDER_QUEUE_STORAGE_KEY = "stura-kasse:pending-orders:v1";
+const DATA_SYNC_INTERVAL_MS = 30_000;
+const DATA_SYNC_TIMEOUT_MS = 60_000;
 const party = {
   ...configuredParty,
   drinks: configuredParty.drinks.map((drink) => ({ ...drink })),
@@ -75,6 +78,7 @@ const elements = {
 let toastTimer;
 let priceDialogViewportHeight;
 let priceDialogViewportFrame;
+let dataSyncInProgress = false;
 
 // ------------------------------
 // Start und Ereignisse
@@ -90,6 +94,7 @@ function initialize() {
   renderOrder();
   renderDeposit();
   bindEvents();
+  startDataCollection();
 }
 
 function bindEvents() {
@@ -653,12 +658,318 @@ function createReceiptNote(text) {
 }
 
 function finishOrder() {
+  queueCompletedOrder();
   state.quantities.clear();
   state.depositCounts.clear();
   renderOrder();
   renderDeposit();
   showScreen("products");
   showToast("Bereit für die nächste Bestellung");
+}
+
+// ------------------------------
+// Datenerfassung und Offline-Warteschlange
+// ------------------------------
+
+function startDataCollection() {
+  if (!getDataCollectionEndpoint()) {
+    return;
+  }
+
+  window.addEventListener("online", () => void syncPendingOrders());
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") {
+      void syncPendingOrders();
+    }
+  });
+
+  window.setInterval(() => void syncPendingOrders(), DATA_SYNC_INTERVAL_MS);
+  void syncPendingOrders();
+}
+
+function queueCompletedOrder() {
+  if (!getDataCollectionEndpoint()) {
+    return;
+  }
+
+  const order = createOrderRecord();
+  const queue = readOrderQueue();
+
+  queue.push({
+    order,
+    attempts: 0,
+    nextAttemptAt: 0,
+  });
+
+  if (!writeOrderQueue(queue)) {
+    console.error("Die Bestellung konnte nicht in der Offline-Warteschlange gespeichert werden.");
+    return;
+  }
+
+  void syncPendingOrders();
+}
+
+function createOrderRecord() {
+  const items = getSelectedDrinks().map(({ drink, quantity }) => {
+    const unitPriceCents = moneyToCents(drink.price);
+    const unitDepositCents = moneyToCents(drink.deposit);
+
+    return {
+      drinkId: drink.id,
+      abbreviation: drink.abbreviation,
+      name: drink.name,
+      quantity,
+      unitPriceCents,
+      unitDepositCents,
+      linePriceCents: unitPriceCents * quantity,
+      lineDepositCents: unitDepositCents * quantity,
+      lineTotalCents: (unitPriceCents + unitDepositCents) * quantity,
+      priceAdjusted: !drinkUsesDefaultValues(drink),
+    };
+  });
+
+  const returnedDeposits = getSelectedReturnedDeposits().map(
+    ({ depositCents, count }) => ({
+      unitDepositCents: depositCents,
+      quantity: count,
+      totalCents: depositCents * count,
+    }),
+  );
+  const drinkPriceCents = items.reduce((sum, item) => sum + item.linePriceCents, 0);
+  const soldDepositCents = items.reduce(
+    (sum, item) => sum + item.lineDepositCents,
+    0,
+  );
+  const returnedDepositCents = returnedDeposits.reduce(
+    (sum, entry) => sum + entry.totalCents,
+    0,
+  );
+
+  return {
+    schemaVersion: 1,
+    orderId: createOrderId(),
+    createdAt: new Date().toISOString(),
+    appVersion: DATA_COLLECTION.appVersion || "unknown",
+    partyId: ACTIVE_PARTY_ID,
+    partyName: party.name,
+    currency: "EUR",
+    items,
+    returnedDeposits,
+    totals: {
+      drinkCount: items.reduce((sum, item) => sum + item.quantity, 0),
+      drinkPriceCents,
+      soldDepositCents,
+      returnedDepositCents,
+      finalCents: drinkPriceCents + soldDepositCents - returnedDepositCents,
+    },
+  };
+}
+
+function createOrderId() {
+  if (typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+
+  return `${Date.now()}-${crypto.getRandomValues(new Uint32Array(2)).join("-")}`;
+}
+
+async function syncPendingOrders() {
+  if (dataSyncInProgress || !navigator.onLine || !getDataCollectionEndpoint()) {
+    return;
+  }
+
+  dataSyncInProgress = true;
+
+  try {
+    while (true) {
+      const queue = readOrderQueue();
+      const nextEntry = queue.find((entry) => entry.nextAttemptAt <= Date.now());
+
+      if (!nextEntry) {
+        break;
+      }
+
+      try {
+        const status = await transmitOrder(nextEntry.order);
+
+        if (["recorded", "duplicate", "inactive"].includes(status)) {
+          removeOrderFromQueue(nextEntry.order.orderId);
+          continue;
+        }
+
+        postponeOrder(nextEntry.order.orderId);
+        break;
+      } catch (error) {
+        console.warn("Bestellung bleibt bis zum nächsten Versuch vorgemerkt.", error);
+        postponeOrder(nextEntry.order.orderId);
+        break;
+      }
+    }
+  } finally {
+    dataSyncInProgress = false;
+  }
+}
+
+async function transmitOrder(order) {
+  const endpoint = getDataCollectionEndpoint();
+  const response = await submitOrderForm(endpoint, order);
+  return response.status;
+}
+
+function submitOrderForm(endpoint, order) {
+  return new Promise((resolve, reject) => {
+    const callbackToken = createOrderId();
+    const iframeName = `stura-kasse-sync-${callbackToken}`;
+    const iframe = document.createElement("iframe");
+    const form = document.createElement("form");
+    const payloadInput = document.createElement("input");
+    const tokenInput = document.createElement("input");
+    const timeout = window.setTimeout(() => {
+      cleanup();
+      reject(new Error("Keine Bestätigung vom Datendienst erhalten."));
+    }, DATA_SYNC_TIMEOUT_MS);
+
+    const cleanup = () => {
+      window.clearTimeout(timeout);
+      window.removeEventListener("message", handleMessage);
+      form.remove();
+      iframe.remove();
+    };
+
+    const handleMessage = (event) => {
+      if (
+        !isTrustedAppsScriptOrigin(event.origin)
+        || event.data?.source !== "stura-kasse-data-collection"
+        || event.data?.token !== callbackToken
+      ) {
+        return;
+      }
+
+      const response = event.data.response;
+      cleanup();
+      resolve(response && typeof response === "object" ? response : { status: "invalid" });
+    };
+
+    iframe.name = iframeName;
+    iframe.hidden = true;
+    iframe.setAttribute("aria-hidden", "true");
+
+    form.method = "POST";
+    form.action = endpoint;
+    form.target = iframeName;
+    form.hidden = true;
+    form.acceptCharset = "UTF-8";
+
+    payloadInput.name = "payload";
+    payloadInput.value = JSON.stringify(order);
+    tokenInput.name = "callbackToken";
+    tokenInput.value = callbackToken;
+    form.append(payloadInput, tokenInput);
+
+    window.addEventListener("message", handleMessage);
+    document.body.append(iframe, form);
+    form.submit();
+  });
+}
+
+function isTrustedAppsScriptOrigin(origin) {
+  try {
+    const url = new URL(origin);
+    return url.protocol === "https:"
+      && (
+        url.hostname === "script.google.com"
+        || url.hostname === "script.googleusercontent.com"
+        || url.hostname.endsWith(".googleusercontent.com")
+      );
+  } catch (error) {
+    return false;
+  }
+}
+
+function postponeOrder(orderId) {
+  const queue = readOrderQueue();
+  const entry = queue.find((candidate) => candidate.order.orderId === orderId);
+
+  if (!entry) {
+    return;
+  }
+
+  entry.attempts += 1;
+  entry.nextAttemptAt = Date.now() + getRetryDelay(entry.attempts);
+  writeOrderQueue(queue);
+}
+
+function getRetryDelay(attempts) {
+  return Math.min(5 * 60_000, 5_000 * (2 ** Math.min(attempts - 1, 6)));
+}
+
+function removeOrderFromQueue(orderId) {
+  const remainingOrders = readOrderQueue().filter(
+    (entry) => entry.order.orderId !== orderId,
+  );
+  writeOrderQueue(remainingOrders);
+}
+
+function readOrderQueue() {
+  try {
+    const storedValue = window.localStorage.getItem(ORDER_QUEUE_STORAGE_KEY);
+    const parsedValue = storedValue ? JSON.parse(storedValue) : [];
+
+    if (!Array.isArray(parsedValue)) {
+      return [];
+    }
+
+    return parsedValue.filter(
+      (entry) => entry
+        && entry.order
+        && typeof entry.order.orderId === "string"
+        && Number.isInteger(entry.attempts)
+        && Number.isFinite(entry.nextAttemptAt),
+    );
+  } catch (error) {
+    console.warn("Die Offline-Warteschlange konnte nicht gelesen werden.", error);
+    return [];
+  }
+}
+
+function writeOrderQueue(queue) {
+  try {
+    if (queue.length === 0) {
+      window.localStorage.removeItem(ORDER_QUEUE_STORAGE_KEY);
+    } else {
+      window.localStorage.setItem(ORDER_QUEUE_STORAGE_KEY, JSON.stringify(queue));
+    }
+    return true;
+  } catch (error) {
+    console.error("Die Offline-Warteschlange konnte nicht gespeichert werden.", error);
+    return false;
+  }
+}
+
+function getDataCollectionEndpoint() {
+  const endpoint = DATA_COLLECTION?.endpoint?.trim();
+
+  if (!endpoint) {
+    return "";
+  }
+
+  try {
+    const url = new URL(endpoint);
+    const isAppsScriptUrl = url.protocol === "https:"
+      && url.hostname === "script.google.com"
+      && url.pathname.startsWith("/macros/s/")
+      && url.pathname.endsWith("/exec");
+
+    if (!isAppsScriptUrl) {
+      console.warn("DATA_COLLECTION.endpoint ist keine gültige Apps-Script-/exec-Adresse.");
+      return "";
+    }
+
+    return url.href;
+  } catch (error) {
+    console.warn("DATA_COLLECTION.endpoint ist keine gültige URL.", error);
+    return "";
+  }
 }
 
 // ------------------------------

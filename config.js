@@ -8,6 +8,18 @@
 
 const ACTIVE_PARTY_ID = "semesterparty";
 
+/**
+ * DATENERFASSUNG (nur auf der Branch data-collection)
+ *
+ * Nach dem Bereitstellen des Google Apps Scripts wird dessen /exec-Adresse
+ * hier eingetragen. Solange endpoint leer ist, werden keine Bestellungen
+ * vorgemerkt oder gesendet.
+ */
+const DATA_COLLECTION = {
+  endpoint: "https://script.google.com/macros/s/AKfycbwnwQ04W1702Rgk9S2RITm_Q1iovUz7i0Uwvp5L2W80kyWzJ3fSncWKtzEcSofL-NdW6w/exec",
+  appVersion: "data-collection-v1",
+};
+
 const PARTIES = {
   semesterparty: {
     name: "Semesterparty",
