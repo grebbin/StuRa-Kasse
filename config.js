@@ -23,8 +23,9 @@ const DATA_COLLECTION = {
 const PARTIES = {
   semesterparty: {
     name: "Semesterparty",
-    // Diese Pfandwerte erscheinen in dieser Reihenfolge im Rückgabe-Screen,
-    // zum Beispiel: returnDeposits: [0.5, 1.0, 2.0]
+    // Diese Pfandwerte erscheinen im Rückgabe-Screen. Ein Eintrag kann nur
+    // ein Wert sein oder zusätzlich einen Namen für die Anzeige haben:
+    // returnDeposits: [0.5, { value: 1.0, name: "Flaschen" }]
     returnDeposits: [1.0],
     drinks: [
       // price ist der Getränkepreis, deposit das beim Verkauf berechnete Pfand.
@@ -39,7 +40,10 @@ const PARTIES = {
 
   lightsout: {
     name: "Lights Out",
-    returnDeposits: [2.0, 1.0],
+    returnDeposits: [
+      { value: 2.0, name: "Flaschen" },
+      { value: 1.0, name: "Becher" },
+    ],
     drinks: [
       { id: "radler", abbreviation: "RADL", name: "Radler", price: 1.5, deposit: 2.0 },
       { id: "bier", abbreviation: "BIER", name: "Bier Helles", price: 2.0, deposit: 2.0 },
@@ -49,9 +53,9 @@ const PARTIES = {
       { id: "hugo", abbreviation: "HUGO", name: "Hugo", price: 3.5, deposit: 1.0 },
       { id: "gintonic", abbreviation: "GIN", name: "Gin Tonic", price: 4.0, deposit: 1.0 },
       { id: "mule", abbreviation: "MULE", name: "FHP Mule", price: 4.0, deposit: 1.0 },
-      { id: "turbomate", abbreviation: "TUBO", name: "Turbomate", price: 3.5, deposit: 1.0 },
+      { id: "turbomate", abbreviation: "TUBO", name: "Turbomate", price: 3.5, deposit: 2.0 },
       { id: "sektbronte", abbreviation: "BRON", name: "Sekt-Bronte (Sekt Mate)", price: 3.5, deposit: 1.0 },
-      { id: "shots", abbreviation: "SHOT", name: "Shots", price: 1.0, deposit: 1.0 },
+      { id: "shot", abbreviation: "SHOT", name: "Shot", price: 1.0, deposit: 0 },
       { id: "freigetraenk", abbreviation: "FREI", name: "Freigetränk (Wertmarke)", price: 0.0, deposit: 0.0 },
 
     ],

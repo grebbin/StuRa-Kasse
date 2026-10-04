@@ -500,17 +500,17 @@ function changeDeposit(depositCents, difference) {
 }
 
 function renderDeposit() {
-  const depositValues = getReturnDepositValues();
+  const depositOptions = getReturnDepositOptions();
   const totalCount = getReturnedDepositCount();
   const hasDrinks = getTotalDrinkCount() > 0;
 
   elements.depositCounterList.replaceChildren();
 
-  depositValues.forEach((depositCents) => {
-    elements.depositCounterList.append(createDepositCounter(depositCents));
+  depositOptions.forEach((option) => {
+    elements.depositCounterList.append(createDepositCounter(option));
   });
 
-  if (depositValues.length === 0) {
+  if (depositOptions.length === 0) {
     const emptyMessage = document.createElement("p");
     emptyMessage.className = "deposit-counter-list__empty";
     emptyMessage.textContent = "Keine Pfandwerte eingerichtet";
@@ -526,16 +526,17 @@ function renderDeposit() {
     : "Pfand berechnen";
 }
 
-function createDepositCounter(depositCents) {
+function createDepositCounter({ depositCents, name }) {
   const depositValue = depositCents / 100;
   const count = state.depositCounts.get(depositCents) ?? 0;
   const card = document.createElement("section");
   card.className = "deposit-counter-card";
-  card.setAttribute("aria-label", `Pfand zu ${formatMoney(depositValue)}`);
+  const namedDeposit = name ? ` »${name}«` : "";
+  card.setAttribute("aria-label", `Pfand zu ${formatMoney(depositValue)}${namedDeposit}`);
 
   const rate = document.createElement("p");
   rate.className = "deposit-counter-card__rate";
-  rate.textContent = `${formatMoney(depositValue)} Pfand`;
+  rate.textContent = `${formatMoney(depositValue)}${namedDeposit} Pfand`;
 
   const counter = document.createElement("div");
   counter.className = "counter";
@@ -1016,29 +1017,35 @@ function getDrinkUnitTotal(drink) {
   return drink.price + drink.deposit;
 }
 
-function getReturnDepositValues() {
-  const values = [];
-  const knownValues = new Set();
+function getReturnDepositOptions() {
+  const optionsByCents = new Map();
 
-  const addValue = (value) => {
+  const addValue = (entry) => {
+    const value = typeof entry === "number" ? entry : entry.value;
+    const name = typeof entry === "object" && typeof entry.name === "string"
+      ? entry.name.trim()
+      : "";
     const depositCents = moneyToCents(value);
 
-    if (depositCents > 0 && !knownValues.has(depositCents)) {
-      knownValues.add(depositCents);
-      values.push(depositCents);
+    if (depositCents > 0 && !optionsByCents.has(depositCents)) {
+      optionsByCents.set(depositCents, { depositCents, name });
     }
   };
 
   party.returnDeposits.forEach(addValue);
   party.drinks.forEach((drink) => addValue(drink.deposit));
   state.depositCounts.forEach((count, depositCents) => {
-    if (count > 0 && !knownValues.has(depositCents)) {
-      knownValues.add(depositCents);
-      values.push(depositCents);
+    if (count > 0 && !optionsByCents.has(depositCents)) {
+      optionsByCents.set(depositCents, { depositCents, name: "" });
     }
   });
 
-  return values.sort((firstValue, secondValue) => firstValue - secondValue);
+  return [...optionsByCents.values()]
+    .sort((firstOption, secondOption) => firstOption.depositCents - secondOption.depositCents);
+}
+
+function getReturnDepositValues() {
+  return getReturnDepositOptions().map(({ depositCents }) => depositCents);
 }
 
 function getSelectedReturnedDeposits() {
@@ -1203,11 +1210,18 @@ function validateParty(partyToValidate) {
 
   if (
     !Array.isArray(partyToValidate.returnDeposits)
-    || partyToValidate.returnDeposits.some(
-      (deposit) => !Number.isFinite(deposit) || deposit <= 0,
-    )
+    || partyToValidate.returnDeposits.some((deposit) => {
+      if (Number.isFinite(deposit)) {
+        return deposit <= 0;
+      }
+      return !deposit
+        || !Number.isFinite(deposit.value)
+        || deposit.value <= 0
+        || (deposit.name !== undefined
+          && (typeof deposit.name !== "string" || deposit.name.trim().length === 0));
+    })
   ) {
-    throw new Error("Rückgabe-Pfandwerte müssen als Liste positiver Zahlen angegeben werden.");
+    throw new Error("Rückgabe-Pfandwerte brauchen einen positiven Wert und optional einen Namen.");
   }
 
   const ids = new Set();
