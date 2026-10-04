@@ -99,7 +99,10 @@ function initialize() {
 
 function bindEvents() {
   elements.resetButton.addEventListener("click", resetOrderWithFeedback);
-  elements.toDepositButton.addEventListener("click", () => showScreen("deposit"));
+  elements.toDepositButton.addEventListener("click", () => {
+    renderDeposit();
+    showScreen("deposit");
+  });
 
   document.querySelectorAll("[data-back-to]").forEach((button) => {
     button.addEventListener("click", () => showScreen(button.dataset.backTo));
@@ -466,7 +469,9 @@ function renderOrder() {
   elements.itemCount.textContent = `${totalCount} ${totalCount === 1 ? "Getränk" : "Getränke"}`;
   elements.drinkTotal.textContent = formatMoney(totalPrice);
   elements.resetButton.disabled = totalCount === 0;
-  elements.toDepositButton.disabled = totalCount === 0;
+  elements.toDepositButton.textContent = totalCount === 0
+    ? "Nur Pfandrückgabe..."
+    : "Berechnen...";
 }
 
 function resetOrderWithFeedback() {
@@ -497,6 +502,7 @@ function changeDeposit(depositCents, difference) {
 function renderDeposit() {
   const depositValues = getReturnDepositValues();
   const totalCount = getReturnedDepositCount();
+  const hasDrinks = getTotalDrinkCount() > 0;
 
   elements.depositCounterList.replaceChildren();
 
@@ -512,9 +518,12 @@ function renderDeposit() {
   }
 
   elements.depositTotal.textContent = `− ${formatMoney(getReturnedDepositTotal())}`;
-  elements.calculateButton.textContent = totalCount === 0
-    ? "Berechnen ohne Pfand"
-    : "Berechnen mit Pfand";
+  elements.calculateButton.disabled = !hasDrinks && totalCount === 0;
+  elements.calculateButton.textContent = hasDrinks
+    ? totalCount === 0
+      ? "Berechnen ohne Pfand"
+      : "Berechnen mit Pfand"
+    : "Pfand berechnen";
 }
 
 function createDepositCounter(depositCents) {

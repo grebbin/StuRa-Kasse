@@ -36,6 +36,8 @@ const ORDER_HEADERS = [
 
 const ITEM_HEADERS = [
   "Bestell-ID",
+  "Party-ID",
+  "Party",
   "Getränke-ID",
   "Abkürzung",
   "Getränk",
@@ -50,6 +52,32 @@ const ITEM_HEADERS = [
 
 const REFUND_HEADERS = [
   "Bestell-ID",
+  "Party-ID",
+  "Party",
+  "Pfandwert",
+  "Menge",
+  "Abzug",
+];
+
+// Diese Spaltenreihenfolge wurde vor der Ergänzung der Party-Informationen
+// verwendet. setupSheets() erkennt sie und ergänzt die zwei neuen Spalten,
+// ohne bereits erfasste Daten zu verlieren.
+const LEGACY_ITEM_HEADERS = [
+  "Bestell-ID",
+  "Getränke-ID",
+  "Abkürzung",
+  "Getränk",
+  "Menge",
+  "Preis je Stück",
+  "Pfand je Stück",
+  "Warenwert",
+  "Verkaufspfand",
+  "Zeilensumme",
+  "Preis angepasst",
+];
+
+const LEGACY_REFUND_HEADERS = [
+  "Bestell-ID",
   "Pfandwert",
   "Menge",
   "Abzug",
@@ -62,6 +90,8 @@ function setupSheets() {
   const items = ensureDataSheet_(spreadsheet, SHEETS.items, ITEM_HEADERS);
   const refunds = ensureDataSheet_(spreadsheet, SHEETS.refunds, REFUND_HEADERS);
 
+  backfillDetailPartyColumns_(orders, [items, refunds]);
+
   settings.setFrozenRows(1);
   orders.setFrozenRows(1);
   items.setFrozenRows(1);
@@ -69,9 +99,9 @@ function setupSheets() {
 
   orders.getRange("B:C").setNumberFormat("dd.mm.yyyy hh:mm:ss");
   orders.getRange("G:J").setNumberFormat("0.00 [$€-407]");
-  items.getRange("F:J").setNumberFormat("0.00 [$€-407]");
-  refunds.getRange("B:B").setNumberFormat("0.00 [$€-407]");
+  items.getRange("H:L").setNumberFormat("0.00 [$€-407]");
   refunds.getRange("D:D").setNumberFormat("0.00 [$€-407]");
+  refunds.getRange("F:F").setNumberFormat("0.00 [$€-407]");
 
   [settings, orders, items, refunds].forEach((sheet) => {
     sheet.autoResizeColumns(1, sheet.getLastColumn());
@@ -173,6 +203,8 @@ function writeOrder_(order) {
 
   appendRows_(itemsSheet, order.items.map((item) => [
     order.orderId,
+    safeText_(order.partyId),
+    safeText_(order.partyName),
     safeText_(item.drinkId),
     safeText_(item.abbreviation),
     safeText_(item.name),
@@ -187,6 +219,8 @@ function writeOrder_(order) {
 
   appendRows_(refundsSheet, order.returnedDeposits.map((entry) => [
     order.orderId,
+    safeText_(order.partyId),
+    safeText_(order.partyName),
     centsToEuros_(entry.unitDepositCents),
     entry.quantity,
     centsToEuros_(entry.totalCents),
@@ -214,11 +248,14 @@ function validateOrder_(input) {
   if (order.schemaVersion !== 1 || order.currency !== "EUR") {
     throw new Error("Nicht unterstützte Datenversion oder Währung.");
   }
-  if (!Array.isArray(order.items) || order.items.length < 1 || order.items.length > 100) {
+  if (!Array.isArray(order.items) || order.items.length > 100) {
     throw new Error("Die Getränkeliste ist ungültig.");
   }
   if (!Array.isArray(order.returnedDeposits) || order.returnedDeposits.length > 50) {
     throw new Error("Die Pfandrückgabe ist ungültig.");
+  }
+  if (order.items.length === 0 && order.returnedDeposits.length === 0) {
+    throw new Error("Eine Bestellung braucht Getränke oder Pfandrückgabe.");
   }
 
   order.items = order.items.map(validateItem_);
@@ -367,16 +404,76 @@ function ensureSettingsSheet_(spreadsheet) {
 
 function ensureDataSheet_(spreadsheet, name, headers) {
   const sheet = spreadsheet.getSheetByName(name) || spreadsheet.insertSheet(name);
-  const headerRange = sheet.getRange(1, 1, 1, headers.length);
+  const existingHeaders = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  const hasHeaders = existingHeaders.some((header) => header !== "");
 
-  if (headerRange.isBlank()) {
-    headerRange.setValues([headers]);
-  } else if (headerRange.getValues()[0].join("|") !== headers.join("|")) {
+  if (!hasHeaders) {
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+  } else if (existingHeaders.join("|") === headers.join("|")) {
+    // Die Tabelle hat bereits das aktuelle Format.
+  } else if (hasLegacyDetailHeaders_(name, existingHeaders)) {
+    sheet.insertColumnsAfter(1, 2);
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+  } else {
     throw new Error(`Das Tabellenblatt ${name} hat unerwartete Spalten.`);
   }
 
-  headerRange.setFontWeight("bold");
+  sheet.getRange(1, 1, 1, headers.length).setFontWeight("bold");
   return sheet;
+}
+
+function hasLegacyDetailHeaders_(name, headers) {
+  if (name === SHEETS.items) {
+    return headers.join("|") === LEGACY_ITEM_HEADERS.join("|");
+  }
+  if (name === SHEETS.refunds) {
+    return headers.join("|") === LEGACY_REFUND_HEADERS.join("|");
+  }
+  return false;
+}
+
+function backfillDetailPartyColumns_(ordersSheet, detailSheets) {
+  const orderCount = ordersSheet.getLastRow() - 1;
+  if (orderCount < 1) {
+    return;
+  }
+
+  const partiesByOrderId = new Map();
+  ordersSheet.getRange(2, 1, orderCount, 5).getValues().forEach((row) => {
+    partiesByOrderId.set(String(row[0]), [row[3], row[4]]);
+  });
+
+  detailSheets.forEach((sheet) => {
+    const rowCount = sheet.getLastRow() - 1;
+    if (rowCount < 1) {
+      return;
+    }
+
+    const orderIds = sheet.getRange(2, 1, rowCount, 1).getValues();
+    const partyRange = sheet.getRange(2, 2, rowCount, 2);
+    const currentParties = partyRange.getValues();
+    let changed = false;
+
+    const parties = currentParties.map((currentParty, index) => {
+      const sourceParty = partiesByOrderId.get(String(orderIds[index][0]));
+      if (!sourceParty) {
+        return currentParty;
+      }
+
+      const party = [
+        currentParty[0] || sourceParty[0],
+        currentParty[1] || sourceParty[1],
+      ];
+      changed = changed
+        || party[0] !== currentParty[0]
+        || party[1] !== currentParty[1];
+      return party;
+    });
+
+    if (changed) {
+      partyRange.setValues(parties);
+    }
+  });
 }
 
 function requireSheet_(spreadsheet, name) {
