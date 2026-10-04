@@ -6,7 +6,7 @@
  * 3. Änderungen committen und zu GitHub pushen.
  */
 
-const ACTIVE_PARTY_ID = "semesterparty";
+const ACTIVE_PARTY_ID = "lightsout";
 
 /**
  * DATENERFASSUNG (nur auf der Branch data-collection)
@@ -37,12 +37,23 @@ const PARTIES = {
     ],
   },
 
-  sommerfest: {
-    name: "Sommerfest",
-    returnDeposits: [0.5],
+  lightsout: {
+    name: "Lights Out",
+    returnDeposits: [2.0],
     drinks: [
-      { id: "limo", abbreviation: "LIMO", name: "Limonade", price: 2.0, deposit: 0.5 },
-      { id: "wasser", abbreviation: "WASS", name: "Wasser", price: 1.0, deposit: 0.5 },
+      { id: "radler", abbreviation: "RADL", name: "Radler", price: 1.5, deposit: 2.0 },
+      { id: "bier", abbreviation: "BIER", name: "Bier Helles", price: 2.0, deposit: 2.0 },
+      { id: "sekt", abbreviation: "SEKT", name: "Sekt", price: 3.0, deposit: 0 },
+      { id: "wein", abbreviation: "WEIN", name: "Wein", price: 3.0, deposit: 0 },
+      { id: "aperol", abbreviation: "APRL", name: "Aperol Spritz", price: 4.0, deposit: 0 },
+      { id: "hugo", abbreviation: "HUGO", name: "Hugo", price: 3.5, deposit: 0 },
+      { id: "gintonic", abbreviation: "GIN", name: "Gin Tonic", price: 4.0, deposit: 0 },
+      { id: "mule", abbreviation: "MULE", name: "FHP Mule", price: 4.0, deposit: 0 },
+      { id: "turbomate", abbreviation: "TUBO", name: "Turbomate", price: 3.5, deposit: 0 },
+      { id: "sektbronte", abbreviation: "BRON", name: "Sekt-Bronte", price: 3.5, deposit: 0 },
+      { id: "shots", abbreviation: "SHOT", name: "Shots", price: 1.0, deposit: 0 },
+      { id: "freigetraenk", abbreviation: "FREI", name: "Freigetränk (Wertmarke)", price: 0.0, deposit: 0 },
+
     ],
   },
 };
