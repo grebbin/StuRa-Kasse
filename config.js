@@ -58,6 +58,7 @@ const PARTIES = {
       { id: "mule", abbreviation: "MULE", name: "FHP Mule", price: 4.0, deposit: 1.0 },
       { id: "turbomate", abbreviation: "TURBO", name: "Turbomate", price: 3.5, deposit: 2.0 },
       { id: "sektbronte", abbreviation: "BRONT", name: "Sekt-Bronte (Sekt Mate)", price: 3.5, deposit: 1.0 },
+      { id: "mate", abbreviation: "MATE", name: "Club Mate", price: 2.0, deposit: 2.0},
       { id: "shot", abbreviation: "SHOT", name: "Shot", price: 1.0, deposit: 0 },
       { id: "freigetraenk", abbreviation: "FREI", name: "Freigetränk (Wertmarke)", price: 0.0, deposit: 0.0 },
     ],
